@@ -204,9 +204,14 @@ static bool TryParseImmediate(string code, int startIndex, out byte immediate)
 static Panel CreatePanel(byte opcode)
 {
     string binary = Convert.ToString(opcode, 2).PadLeft(8, '0');
-    string output = new string(binary.Reverse().ToArray());
+    var markup = binary.Reverse()
+        .Select(c => c == '1' ? "[green]1[/]" : "[red]0[/]")
+        .ToArray();
+    var output = new Markup(string.Join("", markup));
 
-    return new Panel(output);
+    var panel = new Panel(output);
+    panel.BorderColor(Color.Aqua);
+    return panel;
 }
 
 static void SyntaxError(int line)
