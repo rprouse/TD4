@@ -16,6 +16,7 @@
   | JMP Im      | 1111      | Im        |
  */
 using System.Globalization;
+using Spectre.Console;
 
 if (args.Length != 1)
 {
@@ -40,18 +41,25 @@ try
         .Select(x => x.Replace(" ", "").ToLowerInvariant())
         .ToArray();
 
-    var opcodes = new List<byte>();
+    var opcodes = new byte[16];
+    var index = 0;
     bool error = false;
 
     for (int line = 1; line <= asm.Length; line++)
     {
         string code = asm[line - 1];
 
-        if (code.StartsWith("adda,0x"))
+        if (index == 16 && !code.StartsWith("#") && !string.IsNullOrEmpty(code))
+        {
+            Console.WriteLine($"ROM full on line {line}");
+            error = true;
+            break;
+        }
+        else if (code.StartsWith("adda,0x"))
         {
             if (TryParseImmediate(code, 7, out byte immediate))
             {
-                opcodes.Add(immediate);
+                opcodes[index++] = immediate;
             }
             else
             {
@@ -61,17 +69,17 @@ try
         }
         else if (code == "mova,b")
         {
-            opcodes.Add(0b0001_0000);
+            opcodes[index++] = 0b0001_0000;
         }
         else if (code == "ina")
         {
-            opcodes.Add(0b0010_0000);
+            opcodes[index++] = 0b0010_0000;
         }
         else if (code.StartsWith("mova,0x"))
         {
             if (TryParseImmediate(code, 7, out byte immediate))
             {
-                opcodes.Add((byte)(0b0011_0000 | immediate));
+                opcodes[index++] = (byte)(0b0011_0000 | immediate);
             }
             else
             {
@@ -81,13 +89,13 @@ try
         }
         else if (code == "movb,a")
         {
-            opcodes.Add(0b0100_0000);
+            opcodes[index++] = 0b0100_0000;
         }
         else if (code.StartsWith("addb,0x"))
         {
             if (TryParseImmediate(code, 7, out byte immediate))
             {
-                opcodes.Add((byte)(0b0101_0000 | immediate));
+                opcodes[index++] = (byte)(0b0101_0000 | immediate);
             }
             else
             {
@@ -97,13 +105,13 @@ try
         }
         else if (code == "inb")
         {
-            opcodes.Add(0b0110_0000);
+            opcodes[index++] = 0b0110_0000;
         }
         else if (code.StartsWith("movb,0x"))
         {
             if (TryParseImmediate(code, 7, out byte immediate))
             {
-                opcodes.Add((byte)(0b0111_0000 | immediate));
+                opcodes[index++] = (byte)(0b0111_0000 | immediate);
             }
             else
             {
@@ -113,13 +121,13 @@ try
         }
         else if (code == "outb")
         {
-            opcodes.Add(0b1001_0000);
+            opcodes[index++] = 0b1001_0000;
         }
         else if (code.StartsWith("out0x"))
         {
             if (TryParseImmediate(code, 5, out byte immediate))
             {
-                opcodes.Add((byte)(0b1011_0000 | immediate));
+                opcodes[index++] = (byte)(0b1011_0000 | immediate);
             }
             else
             {
@@ -131,7 +139,7 @@ try
         {
             if (TryParseImmediate(code, 4, out byte immediate))
             {
-                opcodes.Add((byte)(0b1110_0000 | immediate));
+                opcodes[index++] = (byte)(0b1110_0000 | immediate);
             }
             else
             {
@@ -143,7 +151,7 @@ try
         {
             if (TryParseImmediate(code, 5, out byte immediate))
             {
-                opcodes.Add((byte)(0b1111_0000 | immediate));
+                opcodes[index++] = (byte)(0b1111_0000 | immediate);
             }
             else
             {
@@ -151,7 +159,7 @@ try
                 SyntaxError(line);
             }
         }
-        else if (!code.StartsWith("#"))
+        else if (!code.StartsWith("#") && !string.IsNullOrEmpty(code))
         {
             error = true;
             SyntaxError(line);
@@ -159,12 +167,25 @@ try
     }
     if (error) return 1;
 
-    for (int i = 0; i < opcodes.Count; i++)
+    var table = new Table();
+    table.AddColumns(
+        new TableColumn("").Centered(),
+        new TableColumn("").Centered(),
+        new TableColumn("").Centered(),
+        new TableColumn("").Centered()
+    );
+    table.NoBorder();
+    for (int i = 0; i < opcodes.Length; )
     {
-        string output = new string(Convert.ToString(opcodes[i], 2).PadLeft(8, '0').Reverse().ToArray());
-        Console.Write($"{output} ");
-        if ((i + 1) % 4 == 0) Console.WriteLine();
+        table.AddRow(new[]
+        {
+            CreatePanel(opcodes[i++]),
+            CreatePanel(opcodes[i++]),
+            CreatePanel(opcodes[i++]),
+            CreatePanel(opcodes[i++]),
+        });
     }
+    AnsiConsole.Write(table);
 
     return 0;
 }
@@ -178,6 +199,14 @@ static bool TryParseImmediate(string code, int startIndex, out byte immediate)
 {
     var imstr = code.Substring(startIndex);
     return byte.TryParse(imstr, NumberStyles.HexNumber, null as IFormatProvider, out immediate) && immediate <= 0xF;
+}
+
+static Panel CreatePanel(byte opcode)
+{
+    string binary = Convert.ToString(opcode, 2).PadLeft(8, '0');
+    string output = new string(binary.Reverse().ToArray());
+
+    return new Panel(output);
 }
 
 static void SyntaxError(int line)

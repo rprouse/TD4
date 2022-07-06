@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Spectre.Console" Version="0.44.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="asm\01-output.s">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
