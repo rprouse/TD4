@@ -1,0 +1,28 @@
+{
+  "profiles": {
+    "TD4 01": {
+      "commandName": "Project",
+      "commandLineArgs": "./asm/01-output.s"
+    },
+    "TD4 02": {
+      "commandName": "Project",
+      "commandLineArgs": "./asm/02-jump.s"
+    },
+    "TD4 03": {
+      "commandName": "Project",
+      "commandLineArgs": "./asm/03-input.s"
+    },
+    "TD4 04": {
+      "commandName": "Project",
+      "commandLineArgs": "./asm/04-alu.s"
+    },
+    "TD4 05": {
+      "commandName": "Project",
+      "commandLineArgs": "./asm/05-add-move.s"
+    },
+    "TD4 06": {
+      "commandName": "Project",
+      "commandLineArgs": "./asm/06-invert.s"
+    }
+  }
+}
