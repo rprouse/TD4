@@ -45,7 +45,7 @@ try
 
     for (int line = 1; line <= asm.Length; line++)
     {
-        string code = asm[line-1];
+        string code = asm[line - 1];
 
         if (code.StartsWith("adda,0x"))
         {
@@ -161,14 +161,14 @@ try
 
     for (int i = 0; i < opcodes.Count; i++)
     {
-        string output = Convert.ToString(opcodes[i], 2).PadLeft(8, '0');
+        string output = new string(Convert.ToString(opcodes[i], 2).PadLeft(8, '0').Reverse().ToArray());
         Console.Write($"{output} ");
         if ((i + 1) % 4 == 0) Console.WriteLine();
     }
 
-    return 0;   
+    return 0;
 }
-catch(Exception ex)
+catch (Exception ex)
 {
     Console.WriteLine($"Error: {ex}");
     return -99;
