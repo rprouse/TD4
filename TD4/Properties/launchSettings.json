@@ -23,6 +23,10 @@
     "TD4 06": {
       "commandName": "Project",
       "commandLineArgs": "./asm/06-invert.s"
+    },
+    "TD4 07": {
+      "commandName": "Project",
+      "commandLineArgs": "./asm/07-extra-instructions.s"
     }
   }
 }

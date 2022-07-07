@@ -9,9 +9,12 @@
   | ADD B, Im   | 0101      | Im        |
   | IN B        | 0110      | 0000      |
   | MOV B, Im   | 0111      | Im        |
+  |             | 1000      |           |
   | OUT B       | 1001      | 0000      |
+  |             | 1010      |           |
   | OUT Im      | 1011      | Im        |
-  | JZ Im       | 1110      | Im        |
+  |             | 1100      |           |
+  |             | 1101      |           |
   | JZ Im       | 1110      | Im        |
   | JMP Im      | 1111      | Im        |
  */
@@ -30,143 +33,97 @@ if (!File.Exists(args[0]))
     return -2;
 }
 
-try
+var result = ParseSource(args[0]);
+if(!result.Success)
 {
-    string[] source = File.ReadAllText(args[0])
-        .Split('\n')
-        .Select(x => x.Trim())
-        .ToArray();
+    return -1;
+}
+WriteOutput(result.Opcodes);
+return 0;
 
-    string[] asm = source
-        .Select(x => x.Replace(" ", "").ToLowerInvariant())
-        .ToArray();
-
-    var opcodes = new byte[16];
-    var index = 0;
-    bool error = false;
-
-    for (int line = 1; line <= asm.Length; line++)
+static Result ParseSource(string filename)
+{
+    var CODES = new Dictionary<string, int>
     {
-        string code = asm[line - 1];
+        { "adda,",  0b0000_0000 },
+        { "mova,b", 0b0001_0000 },
+        { "ina",    0b0010_0000 },
+        { "mova,",  0b0011_0000 },
+        { "movb,a", 0b0100_0000 },
+        { "addb,",  0b0101_0000 },
+        { "inb",    0b0110_0000 },
+        { "movb,",  0b0111_0000 },
+        { "ins8",   0b1000_0000 },
+        { "outb",   0b1001_0000 },
+        { "insa",   0b1010_0000 },
+        { "out",    0b1011_0000 },
+        { "insc",   0b1100_0000 },
+        { "insd",   0b1101_0000 },
+        { "jz",     0b1110_0000 },
+        { "jmp",    0b1111_0000 },
+    };
 
-        if (index == 16 && !code.StartsWith("#") && !string.IsNullOrEmpty(code))
+    try
+    {
+        string[] source = File.ReadAllText(filename)
+            .Split('\n')
+            .Select(x => x.Trim())
+            .ToArray();
+
+        string[] asm = source
+            .Select(x => x.Replace(" ", "").ToLowerInvariant())
+            .ToArray();
+
+        var opcodes = new byte[16];
+        var index = 0;
+        bool error = false;
+
+        for (int line = 1; line <= asm.Length; line++)
         {
-            Console.WriteLine($"ROM full on line {line}");
-            error = true;
-            break;
-        }
-        else if (code.StartsWith("adda,0x"))
-        {
-            if (TryParseImmediate(code, 7, out byte immediate))
+            string code = asm[line - 1];
+            if (code.StartsWith("#") || string.IsNullOrEmpty(code))
             {
-                opcodes[index++] = immediate;
+                // comment or blank line
+                continue;
             }
-            else
+
+            if (index == 16)
+            {
+                // We only have 16 bytes of ROM
+                Console.WriteLine($"ROM full on line {line}");
+                error = true;
+                break;
+            }
+
+            var split = code.Split("0x");
+            byte immediate = 0;
+            if (split.Length > 2 ||
+                !CODES.ContainsKey(split[0]) ||
+                (split.Length == 2 &&
+                  byte.TryParse(split[1], NumberStyles.HexNumber, null as IFormatProvider, out immediate) &&
+                  immediate > 0xF))
             {
                 error = true;
                 SyntaxError(line);
+                continue;
             }
+
+            var op = CODES[split[0]];
+            opcodes[index++] = (byte)(op | immediate);
         }
-        else if (code == "mova,b")
-        {
-            opcodes[index++] = 0b0001_0000;
-        }
-        else if (code == "ina")
-        {
-            opcodes[index++] = 0b0010_0000;
-        }
-        else if (code.StartsWith("mova,0x"))
-        {
-            if (TryParseImmediate(code, 7, out byte immediate))
-            {
-                opcodes[index++] = (byte)(0b0011_0000 | immediate);
-            }
-            else
-            {
-                error = true;
-                SyntaxError(line);
-            }
-        }
-        else if (code == "movb,a")
-        {
-            opcodes[index++] = 0b0100_0000;
-        }
-        else if (code.StartsWith("addb,0x"))
-        {
-            if (TryParseImmediate(code, 7, out byte immediate))
-            {
-                opcodes[index++] = (byte)(0b0101_0000 | immediate);
-            }
-            else
-            {
-                error = true;
-                SyntaxError(line);
-            }
-        }
-        else if (code == "inb")
-        {
-            opcodes[index++] = 0b0110_0000;
-        }
-        else if (code.StartsWith("movb,0x"))
-        {
-            if (TryParseImmediate(code, 7, out byte immediate))
-            {
-                opcodes[index++] = (byte)(0b0111_0000 | immediate);
-            }
-            else
-            {
-                error = true;
-                SyntaxError(line);
-            }
-        }
-        else if (code == "outb")
-        {
-            opcodes[index++] = 0b1001_0000;
-        }
-        else if (code.StartsWith("out0x"))
-        {
-            if (TryParseImmediate(code, 5, out byte immediate))
-            {
-                opcodes[index++] = (byte)(0b1011_0000 | immediate);
-            }
-            else
-            {
-                error = true;
-                SyntaxError(line);
-            }
-        }
-        else if (code.StartsWith("jz0x"))
-        {
-            if (TryParseImmediate(code, 4, out byte immediate))
-            {
-                opcodes[index++] = (byte)(0b1110_0000 | immediate);
-            }
-            else
-            {
-                error = true;
-                SyntaxError(line);
-            }
-        }
-        else if (code.StartsWith("jmp0x"))
-        {
-            if (TryParseImmediate(code, 5, out byte immediate))
-            {
-                opcodes[index++] = (byte)(0b1111_0000 | immediate);
-            }
-            else
-            {
-                error = true;
-                SyntaxError(line);
-            }
-        }
-        else if (!code.StartsWith("#") && !string.IsNullOrEmpty(code))
-        {
-            error = true;
-            SyntaxError(line);
-        }
+        if (error) return Result.CreateFailure();
+
+        return Result.CreateSuccess(opcodes);
     }
-    if (error) return 1;
+    catch (Exception ex)
+    {
+        AnsiConsole.WriteLine($"[red]Error: {ex}[/]");
+        return Result.CreateFailure();
+    }
+}
 
+static void WriteOutput(byte[] opcodes)
+{
     var table = new Table();
     table.AddColumns(
         new TableColumn("").Centered(),
@@ -175,7 +132,7 @@ try
         new TableColumn("").Centered()
     );
     table.NoBorder();
-    for (int i = 0; i < opcodes.Length; )
+    for (int i = 0; i < opcodes.Length;)
     {
         table.AddRow(new[]
         {
@@ -186,19 +143,6 @@ try
         });
     }
     AnsiConsole.Write(table);
-
-    return 0;
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"Error: {ex}");
-    return -99;
-}
-
-static bool TryParseImmediate(string code, int startIndex, out byte immediate)
-{
-    var imstr = code.Substring(startIndex);
-    return byte.TryParse(imstr, NumberStyles.HexNumber, null as IFormatProvider, out immediate) && immediate <= 0xF;
 }
 
 static Panel CreatePanel(byte opcode)
@@ -214,7 +158,5 @@ static Panel CreatePanel(byte opcode)
     return panel;
 }
 
-static void SyntaxError(int line)
-{
-    Console.WriteLine($"Syntax error on line {line}");
-}
+static void SyntaxError(int line) =>
+    AnsiConsole.WriteLine($"[red]Syntax error on line {line}[/]");
